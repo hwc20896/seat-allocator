@@ -1,18 +1,13 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <pybind11/functional.h>
-
-#include <iostream>
+#pragma once
 #include <string>
 #include <format>
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
-#include <algorithm>
 #include <utility>
-#include <random>
-#include <limits>
 #include <ranges>
+#include <algorithm>
+#include <random>
 
 using Position = std::pair<int, int>;
 using Grid = std::vector<std::vector<std::string>>;
@@ -38,7 +33,17 @@ public:
      *
      * @param grid The input grid to be shuffled
      */
-    explicit GridShuffler(const Grid& grid);
+    explicit GridShuffler(const Grid& grid) :
+        original_grid(grid),
+        rows(grid.size()),
+        cols(rows > 0? grid[0].size(): 0)
+    {
+        shuffled_grid = std::vector(rows, std::vector<std::string>(cols, ""));
+        buildForbiddenNeighbors();
+        buildNonEmptyPositions();
+        buildNeighborsMap();
+        buildOriginalPositions();
+    }
 
 private:
     /**
@@ -88,7 +93,32 @@ private:
      * @return false If no valid assignment is found
      */
     bool backtrack(std::unordered_map<Position, std::string, PositionHash>& current_assignment,
-                   std::unordered_map<Position, std::vector<std::string>, PositionHash>& possible_digits);
+                   std::unordered_map<Position, std::vector<std::string>, PositionHash>& possible_digits
+    ) {
+        if (current_assignment.size() == non_empty_positions.size()) return true;
+
+        const auto it = std::ranges::min_element(
+            non_empty_positions,
+            [&](const Position& a, const Position& b) {
+                return !current_assignment.contains(a) &&
+                       (current_assignment.contains(b) ||
+                       possible_digits[a].size() < possible_digits[b].size());
+            }
+        );
+
+        if (it == non_empty_positions.end() || current_assignment.contains(*it)) return false;
+        const Position& pos = *it;
+
+        for (const auto& digit : possible_digits[pos]) {
+            if (isValidAssignment(pos, digit, current_assignment)) {
+                current_assignment[pos] = digit;
+                if (backtrack(current_assignment, possible_digits)) return true;
+                current_assignment.erase(pos);
+            }
+        }
+
+        return false; // 无有效分配，触发回溯
+    }
 
 public:
     /**
@@ -97,7 +127,29 @@ public:
      * @return true If the grid is successfully shuffled
      * @return false If the grid cannot be shuffled
      */
-    bool shuffle();
+    bool shuffle(){
+        std::unordered_map<Position, std::string, PositionHash> current_assignment;
+        std::unordered_map<Position, std::vector<std::string>, PositionHash> possible_digits;
+
+        static std::random_device rd;
+        static std::mt19937 mt{rd()};
+
+        const auto all_digits = forbidden_neighbors | std::views::keys | std::ranges::to<std::vector>();
+
+        for (const auto& pos : non_empty_positions) {
+            possible_digits[pos] = all_digits;
+            std::ranges::shuffle(possible_digits[pos], mt);
+        }
+
+        if (backtrack(current_assignment, possible_digits)) {
+            for (const auto& [pos, digit] : current_assignment) {
+                const auto& [i, j] = pos;
+                shuffled_grid[i][j] = digit;
+            }
+            return true;
+        }
+        return false;
+    }
 
     /** Get the shuffled grid */
     [[nodiscard]]
@@ -111,35 +163,30 @@ public:
      * @return false If the shuffled grid is invalid
      */
     [[nodiscard]]
-    bool validateResult() const;
+    bool validateResult() const {
+        for (const auto& pos : non_empty_positions) {
+            const std::string& digit = shuffled_grid[pos.first][pos.second];
+
+            for (const auto& [fst, snd] : neighbors_map.at(pos)) {
+                if (forbidden_neighbors.at(digit).contains(shuffled_grid[fst][snd])) {
+                    return false;
+                }
+            }
+
+            // 检查原始位置的分配
+            if (auto it = original_positions.find(digit);
+                it != original_positions.end() &&
+                shuffled_grid[it->second.first][it->second.second] == digit
+            ) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 };
 
-namespace py = pybind11;
-
-PYBIND11_MODULE(grid_shuffler, m) {
-    m.doc() = "Grid shuffler algorithm for Python";
-
-    py::class_<GridShuffler>(m, "GridShuffler")
-        .def(py::init<const Grid&>())
-        .def("shuffle", &GridShuffler::shuffle)
-        .def("get_shuffled_grid", &GridShuffler::getShuffledGrid)
-        .def("validate_result", &GridShuffler::validateResult);
-}
-
-//   Content
-GridShuffler::GridShuffler(const Grid& grid) :
-    original_grid(grid),
-    rows(grid.size()),
-    cols(rows > 0? grid[0].size(): 0)
-{
-    shuffled_grid = std::vector(rows, std::vector<std::string>(cols, ""));
-    buildForbiddenNeighbors();
-    buildNonEmptyPositions();
-    buildNeighborsMap();
-    buildOriginalPositions();
-}
-
-void GridShuffler::buildForbiddenNeighbors()  {
+inline void GridShuffler::buildForbiddenNeighbors()  {
     std::vector<std::pair<int, int>> directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
 
     for (int i = 0; i < rows; i++) {
@@ -164,7 +211,7 @@ void GridShuffler::buildForbiddenNeighbors()  {
     }
 }
 
-void GridShuffler::buildNonEmptyPositions() {
+inline void GridShuffler::buildNonEmptyPositions() {
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
             if (!original_grid[i][j].empty()) {
@@ -174,7 +221,7 @@ void GridShuffler::buildNonEmptyPositions() {
     }
 }
 
-void GridShuffler::buildNeighborsMap() {
+inline void GridShuffler::buildNeighborsMap() {
     std::vector<std::pair<int, int>> directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
 
     for (const auto& [i, j] : non_empty_positions) {
@@ -195,7 +242,7 @@ void GridShuffler::buildNeighborsMap() {
     }
 }
 
-void GridShuffler::buildOriginalPositions() {
+inline void GridShuffler::buildOriginalPositions() {
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
             const std::string& tar = original_grid[i][j];
@@ -206,7 +253,7 @@ void GridShuffler::buildOriginalPositions() {
     }
 }
 
-bool GridShuffler::isValidAssignment(
+inline bool GridShuffler::isValidAssignment(
     const Position& pos,
     const std::string& digit,
     const std::unordered_map<Position, std::string, PositionHash>& current_assignment)
@@ -232,102 +279,5 @@ bool GridShuffler::isValidAssignment(
     }
 
     return true; // 分配有效
-}
-
-bool GridShuffler::backtrack(
-    std::unordered_map<Position, std::string, PositionHash>& current_assignment,
-    std::unordered_map<Position, std::vector<std::string>, PositionHash>& possible_digits)
-{
-    if (current_assignment.size() == non_empty_positions.size()) {
-        return true; // 所有位置都已分配
-    }
-
-    // 选择下一个位置（使用最少剩余值启发式）
-    Position next_pos;
-    size_t min_options = std::numeric_limits<size_t>::max();
-
-    for (const auto& pos : non_empty_positions) {
-        if (!current_assignment.contains(pos)) {
-            if (size_t options_count = possible_digits[pos].size();
-                options_count < min_options
-            ) {
-                min_options = options_count;
-                next_pos = pos;
-            }
-        }
-    }
-
-    // 尝试为选定位置分配每个可能的数字
-    for (const auto& digit : possible_digits[next_pos]) {
-        if (isValidAssignment(next_pos, digit, current_assignment)) {
-            current_assignment[next_pos] = digit;
-
-            // 递归调用
-            if (backtrack(current_assignment, possible_digits)) {
-                return true;
-            }
-
-            // 回溯
-            current_assignment.erase(next_pos);
-        }
-    }
-
-    return false; // 无有效分配，触发回溯
-}
-
-bool GridShuffler::shuffle() {
-    std::unordered_map<Position, std::string, PositionHash> current_assignment;
-    std::unordered_map<Position, std::vector<std::string>, PositionHash> possible_digits;
-
-    static std::random_device rd;
-    static std::mt19937 mt{rd()};
-
-    // 初始化每个位置的可能数字列表
-    for (const auto& pos : non_empty_positions) {
-        possible_digits[pos] = std::vector<std::string>();
-        for (const auto& digit: forbidden_neighbors | std::views::keys) {
-            possible_digits[pos].push_back(digit);
-        }
-        // 打乱可能数字的顺序以增加随机性
-        std::ranges::shuffle(possible_digits[pos], mt);
-    }
-
-    if (backtrack(current_assignment, possible_digits)) {
-        // 将结果填充到 shuffled_grid 中
-        for (const auto& [pos, digit] : current_assignment) {
-            const auto& [i, j] = pos;
-            shuffled_grid[i][j] = digit;
-        }
-        return true; // 成功找到一个有效的打乱方案
-    }
-    return false; // 未找到有效的打乱方案
-}
-
-bool GridShuffler::validateResult() const {
-    // 检查每个非空位置的邻居关系
-    for (const auto& pos : non_empty_positions) {
-        const auto& [i, j] = pos;
-        const std::string& digit = shuffled_grid[i][j];
-
-        for (const auto& neighbor : neighbors_map.at(pos)) {
-            if (const auto& [ni, nj] = neighbor;
-                forbidden_neighbors.at(digit).contains(shuffled_grid[ni][nj])
-            ) {
-                return false; // 相邻位置有冲突
-            }
-        }
-
-        // 检查原始位置的分配
-        if (auto it = original_positions.find(digit);
-            it != original_positions.end()
-        ) {
-            const auto&[fst, snd] = it->second;
-            if (shuffled_grid[fst][snd] == digit) {
-                return false; // 原始位置有冲突
-            }
-        }
-    }
-
-    return true; // 所有检查通过，结果有效
 }
 

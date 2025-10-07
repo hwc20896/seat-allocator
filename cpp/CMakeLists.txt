@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.31)
 project(grid_shuffler LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
 include(FetchContent)
 
@@ -15,4 +15,4 @@ FetchContent_MakeAvailable(pybind11)
 
 find_package(Python REQUIRED COMPONENTS Development.Module)
 
-pybind11_add_module(grid_shuffler grid_shuffler_alg.cpp)
+pybind11_add_module(grid_shuffler export_lib.cpp)
