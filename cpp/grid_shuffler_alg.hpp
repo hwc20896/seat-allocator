@@ -271,11 +271,8 @@ inline bool GridShuffler::isValidAssignment(
 
     // 检查原始位置的分配
     auto it = original_positions.find(digit);
-    if (it != original_positions.end()) {
-        const Position& original_pos = it->second;
-        if (auto assigned_it = current_assignment.find(original_pos); assigned_it != current_assignment.end() && assigned_it->second == digit) {
-            return false; // 原始位置有冲突
-        }
+    if (it != original_positions.end() && it->second == pos) {
+        return false; // 原始位置有冲突
     }
 
     return true; // 分配有效
