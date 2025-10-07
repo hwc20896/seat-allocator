@@ -262,8 +262,7 @@ inline bool GridShuffler::isValidAssignment(
     for (const auto& neighbor : neighbors_map[pos]) {
         auto it = current_assignment.find(neighbor);
         if (it != current_assignment.end()) {
-            const std::string& neighbor_digit = it->second;
-            if (forbidden_neighbors[digit].contains(neighbor_digit)) {
+            if (forbidden_neighbors.at(digit).contains(it->second)) {
                 return false; // 相邻位置有冲突
             }
         }
