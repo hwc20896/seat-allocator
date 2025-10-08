@@ -89,31 +89,44 @@ private:
      *
      * @param current_assignment The current assignment of digits to positions
      * @param possible_digits The possible digits for each position
+     * @param used_digits The set of digits that have already been used
      * @return true If a valid assignment is found
      * @return false If no valid assignment is found
      */
     bool backtrack(std::unordered_map<Position, std::string, PositionHash>& current_assignment,
-                   std::unordered_map<Position, std::vector<std::string>, PositionHash>& possible_digits
+                   std::unordered_map<Position, std::vector<std::string>, PositionHash>& possible_digits,
+                   std::unordered_set<std::string>& used_digits
     ) {
         if (current_assignment.size() == non_empty_positions.size()) return true;
 
         const auto it = std::ranges::min_element(
             non_empty_positions,
-            [&](const Position& a, const Position& b) {
-                return !current_assignment.contains(a) &&
-                       (current_assignment.contains(b) ||
-                       possible_digits[a].size() < possible_digits[b].size());
+            std::ranges::less{},
+            // 投影：如果元素已經在 current_assignment 中，就讓它「無限大」
+            [&](const Position& pos) -> size_t {
+                if (current_assignment.contains(pos))
+                    return std::numeric_limits<size_t>::max();
+                return possible_digits.at(pos).size();
             }
         );
 
         if (it == non_empty_positions.end() || current_assignment.contains(*it)) return false;
-        const Position& pos = *it;
 
-        for (const auto& digit : possible_digits[pos]) {
-            if (isValidAssignment(pos, digit, current_assignment)) {
-                current_assignment[pos] = digit;
-                if (backtrack(current_assignment, possible_digits)) return true;
-                current_assignment.erase(pos);
+        const auto digits_to_try = possible_digits[*it];
+        for (const auto& digit : digits_to_try) {
+            if (used_digits.contains(digit)) continue; // 已使用過，跳過
+
+            if (isValidAssignment(*it, digit, current_assignment)) {
+                current_assignment[*it] = digit;
+                used_digits.insert(digit);
+
+                if (backtrack(current_assignment, possible_digits, used_digits)) {
+                    return true; // 找到有效分配，返回
+                }
+
+                // 回溯
+                current_assignment.erase(*it);
+                used_digits.erase(digit);
             }
         }
 
@@ -130,6 +143,7 @@ public:
     bool shuffle(){
         std::unordered_map<Position, std::string, PositionHash> current_assignment;
         std::unordered_map<Position, std::vector<std::string>, PositionHash> possible_digits;
+        std::unordered_set<std::string> used_digits;
 
         static std::random_device rd;
         static std::mt19937 mt{rd()};
@@ -138,10 +152,9 @@ public:
 
         for (const auto& pos : non_empty_positions) {
             possible_digits[pos] = all_digits;
-            std::ranges::shuffle(possible_digits[pos], mt);
         }
 
-        if (backtrack(current_assignment, possible_digits)) {
+        if (backtrack(current_assignment, possible_digits, used_digits)) {
             for (const auto& [pos, digit] : current_assignment) {
                 const auto& [i, j] = pos;
                 shuffled_grid[i][j] = digit;
