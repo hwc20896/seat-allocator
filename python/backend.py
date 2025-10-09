@@ -8,7 +8,7 @@ class Backend:
     def allocate_seats(seating_chart: list[list[str]]) -> list[list[str]]:
         gs = grid_shuffler.GridShuffler(seating_chart)
         if not gs.shuffle() or not gs.validate_result():
-            raise RuntimeError("Unable to allocate seats with the given constraints.")
+            raise RuntimeError("排序失敗，請重試")
         return gs.get_shuffled_grid()
 
     @staticmethod

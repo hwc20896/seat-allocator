@@ -58,6 +58,8 @@ class App(QWidget, Ui_Widget):
             self.__display_data(0)
             for row in data:
                 print(row)
+        else:
+            QMessageBox.warning(self, "錯誤", "讀取 CSV 檔案失敗。")
 
 
     #  --------------------------------------------------------------------------
@@ -91,11 +93,14 @@ class App(QWidget, Ui_Widget):
         """
         assert self.__data, "Data is empty"
         target_data = self.__data[0]
-        shuffled_data = Backend.allocate_seats(target_data)
-        self.__data.append(shuffled_data)
-        self.tab_display.addTab(QWidget(), f"第{len(self.__data)-1}次打亂")
-        self.tab_display.setCurrentIndex(len(self.__data)-1)
-        self.__display_data(len(self.__data)-1)
+        try:
+            shuffled_data = Backend.allocate_seats(target_data)
+            self.__data.append(shuffled_data)
+            self.tab_display.addTab(QWidget(), f"第{len(self.__data)-1}次打亂")
+            self.tab_display.setCurrentIndex(len(self.__data)-1)
+            self.__display_data(len(self.__data)-1)
+        except RuntimeError as e:
+            QMessageBox.critical(self, "錯誤", str(e))
 
     #  --------------------------------------------------------------------------
     def __delete_all(self, delete_first: bool = False) -> None:
