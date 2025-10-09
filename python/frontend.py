@@ -15,7 +15,6 @@ class App(QWidget, Ui_Widget):
         self.setupUi(self)
         self.setWindowTitle("Seat Allocator")
         self.csv_import.clicked.connect(self.__read_file)
-        self.csv_import.setText("-- 空 --")
 
         self.seat_viewer.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.seat_viewer.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -26,15 +25,12 @@ class App(QWidget, Ui_Widget):
         del self.tab
         del self.tab_2
 
-        self.begin_shuffle.setEnabled(False)
         self.begin_shuffle.clicked.connect(self.__begin_shuffling)
 
-        self.delete_all_button.setStyleSheet("color: red;")
         self.delete_all_button.clicked.connect(self.__confirm_delete_all)
 
         self.export_button.clicked.connect(self.__export_data)
 
-        self.csv_import_state.setStyleSheet("color: blue;")
 
     #  --------------------------------------------------------------------------
     def __read_file(self) -> None:
@@ -80,8 +76,7 @@ class App(QWidget, Ui_Widget):
 
             for i in range(row):
                 for j in range(col):
-                    elem = data[i][j]
-                    item = QTableWidgetItem("" if elem == 0 else str(elem))
+                    item = QTableWidgetItem(data[i][j])
                     item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                     item.setFont(QFont("Microsoft JhengHei", 16))
                     self.seat_viewer.setItem(i, j, item)

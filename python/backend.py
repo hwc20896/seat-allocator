@@ -16,6 +16,6 @@ class Backend:
         import pandas as pd
         try:
             df = pd.read_csv(file_path, header=None, dtype=str, engine='c')
-            return [[j.strip() for j in i] for i in df.fillna('').values.tolist()]
+            return df.fillna('').values.tolist()
         except Exception as e:
             raise RuntimeError(f"Error reading CSV file: {e}")
