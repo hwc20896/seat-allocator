@@ -50,7 +50,7 @@
     </font>
    </property>
    <property name="text">
-    <string/>
+    <string>-- 空 --</string>
    </property>
   </widget>
   <widget class="QLabel" name="csv_import_title">
@@ -86,7 +86,7 @@
     </font>
    </property>
    <property name="currentIndex">
-    <number>1</number>
+    <number>0</number>
    </property>
    <widget class="QWidget" name="tab">
     <attribute name="title">
@@ -129,6 +129,9 @@
      <height>371</height>
     </rect>
    </property>
+   <property name="editTriggers">
+    <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
+   </property>
    <property name="showGrid">
     <bool>true</bool>
    </property>
@@ -153,6 +156,9 @@
    </property>
   </widget>
   <widget class="QPushButton" name="begin_shuffle">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="geometry">
     <rect>
      <x>340</x>
@@ -183,6 +189,9 @@
     <font>
      <pointsize>11</pointsize>
     </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">color: red;</string>
    </property>
    <property name="text">
     <string>刪除所有打亂記錄</string>
@@ -219,6 +228,9 @@
     <font>
      <pointsize>20</pointsize>
     </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">color: blue;</string>
    </property>
    <property name="text">
     <string>未導入</string>
